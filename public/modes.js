@@ -84,7 +84,20 @@ async function hostPair(){
     openModal('<h2>دعوت یک بازیکن</h2><p>۱. مهمان این کد را با دوربین گوشی‌اش اسکن کند و نامش را وارد کند.</p>'+codePanel('کپی لینک دعوت')+'<p>۲. پاسخ روی گوشی مهمان را با دوربین میزبان اسکن کن.</p>'+readerPanel('ثبت پاسخ مهمان'))
     bindReader(async text=>{await lan.accept(text);openModal('<h2>اتصال مهمان</h2><p>پس از اتصال، نام مهمان در میز دیده می‌شود. برای نفر بعد دعوت تازه بساز.</p><button class="primary" id="returnTable">بازگشت به میز</button>');$('#returnTable').onclick=()=>modal.close()})
     await displayCode(link)
-  }catch(e){if(generation===pairGeneration)openModal('<h2>اتصال حضوری</h2><p>'+esc(e.message)+'</p>')}
+  }catch(e){
+    if(generation!==pairGeneration)return
+    const emptyLobby=state?.phase==='lobby'&&state.players.length===1
+    openModal('<h2>اتصال حضوری</h2><p>'+esc(e.message)+'</p><button class="secondary" id="retryPair">تلاش دوباره</button>'+(emptyLobby?'<p>اگر شبکه اتصال مستقیم را نمی‌پذیرد، یک میز آنلاین بساز و دوستانت را با یک اسکن دعوت کن.</p><button class="primary" id="onlineQR">ساخت میز آنلاین با دعوت تصویری</button>':''))
+    $('#retryPair').onclick=hostPair
+    if(emptyLobby)$('#onlineQR').onclick=async ev=>{
+      const button=ev.currentTarget;button.disabled=true
+      try{
+        const d=await serverApi({action:'create',name:state.players[0].name})
+        playMode='online';session={code:d.code,token:d.token};localStorage.setItem('khial.session',JSON.stringify(session))
+        signature='';receive(d.state);await onlineInvitation()
+      }catch{notify('اتصال به سرور ممکن نشد. دوباره تلاش کن.');button.disabled=false}
+    }
+  }
 }
 function guestPair(name,offer){
   endPair();const gen=pairGeneration
@@ -98,4 +111,10 @@ function guestPair(name,offer){
     setTimeout(()=>{if(gen===pairGeneration&&modal.open&&$('#copyPair'))notify('اگر هنوز وصل نشده‌ای، وای‌فای مشترک را بررسی کن و از میزبان دعوت تازه بگیر.')},45000)
   }
   bindReader(read);if(offer)read(offer).catch(e=>{if($('#pairError'))$('#pairError').textContent=e.message})
+}
+
+async function onlineInvitation(){
+  const url=new URL('game.html',location.href);url.searchParams.set('room',session.code)
+  openModal('<h2>دعوت به میز آنلاین</h2><p>هر بازیکن این کد را با دوربین گوشی اسکن کند و نامش را وارد کند.</p>'+codePanel('کپی لینک دعوت'))
+  await displayCode(url.href)
 }

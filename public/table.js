@@ -37,7 +37,8 @@ function samples(){$('#samples').innerHTML=[16,22,72,76,79].map(id=>tile(id)).jo
 fetch('./cards/names.json').then(r=>r.json()).then(x=>{oldLabels=x}).catch(()=>{})
 samples();fetch('./paintings/names.json').then(r=>r.json()).then(x=>{labels=x;samples()}).catch(()=>{})
 $('#rules').onclick=()=>openModal('<h2>راهنمای بازی</h2><p><b>آماده شدن</b> — میزبان میز می‌سازد و لینک دعوت را برای دوستانش می‌فرستد. هر نفر پنج کارت خصوصی دارد و دو بار قصه‌گو می‌شود.</p><p><b>سه تا هشت نفر</b> — قصه‌گو یک کارت و یک سرنخ انتخاب می‌کند. دیگران هر کدام یک کارت هم‌خوان می‌گذارند. کارت‌ها بُر می‌خورند و همه به‌جز قصه‌گو، کارت او را حدس می‌زنند. رأی به کارت خودت مجاز نیست.</p><p><b>امتیاز</b> — اگر بعضی درست حدس بزنند، قصه‌گو و هر حدس‌زنِ درست سه امتیاز می‌گیرند. اگر همه یا هیچ‌کس درست نگویند، هر حدس‌زن دو امتیاز می‌گیرد. هر رأی به کارت گمراه‌کننده هم یک امتیاز برای صاحب آن دارد.</p><p><b>بازی دونفره</b> — با هم یک تیم هستید. دو کارت تصادفی کنار کارت قصه‌گو می‌آید. هر حدس درست برای هر دو نفر دو امتیاز دارد. هدف چهار حدس درست از چهار دور است.</p>')
-async function api(body){if(playMode==='local')return (await nearby()).action(body);const response=await fetch(onlineEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});const d=await response.json().catch(()=>({error:'سرور پاسخ نداد. دوباره تلاش کنید.'}));if(!response.ok||d.error)throw Error(d.error||'ارتباط برقرار نشد.');return d}
+async function api(body){if(playMode==='local')return (await nearby()).action(body);return serverApi(body)}
+async function serverApi(body){const response=await fetch(onlineEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});const d=await response.json().catch(()=>({error:'سرور پاسخ نداد. دوباره تلاش کنید.'}));if(!response.ok||d.error)throw Error(d.error||'ارتباط برقرار نشد.');return d}
 const invited=new URL(location.href).searchParams.get('room')
 function entry(join=false){
   playMode='online'
@@ -88,7 +89,7 @@ function render(){
   if(['submit','vote'].includes(s.phase)&&s.own!==undefined&&!cards.includes(s.own)){
     inner+='<details class="help"><summary>کارت انتخاب‌شدهٔ من</summary><div class="answer">'+tile(s.own,'disabled')+'</div></details>'
   }
-  room.innerHTML='<div class="panel"><div class="roomhead"><h2>میز <b class="code">'+(local?'حضوری':fa(session.code))+'</b></h2><button class="secondary" id="invite" '+(local&&!host?'hidden':'')+'>'+(local?'دعوت با کد تصویری':'کپی لینک دعوت')+'</button></div><p>'+(s.phase==='lobby'?fa(n)+' نفر از ۸ نفر حاضرند':'دور '+fa(s.round)+' از '+fa(n*2)+' · قصه‌گو '+esc(s.players[s.narrator].name))+'</p><div class="players">'+chips+'</div></div><div class="panel">'+inner+'</div><button class="textbutton" id="leave">بازگشت به صفحهٔ میزها</button>'
+  room.innerHTML='<div class="panel"><div class="roomhead"><h2>میز <b class="code">'+(local?'حضوری':fa(session.code))+'</b></h2><button class="secondary" id="invite" '+(local&&!host?'hidden':'')+'>'+(local?'دعوت با کد تصویری':'کپی لینک دعوت')+'</button>'+(!local?'<button class="secondary" id="showQR">نمایش کد تصویری</button>':'')+'</div><p>'+(s.phase==='lobby'?fa(n)+' نفر از ۸ نفر حاضرند':'دور '+fa(s.round)+' از '+fa(n*2)+' · قصه‌گو '+esc(s.players[s.narrator].name))+'</p><div class="players">'+chips+'</div></div><div class="panel">'+inner+'</div><button class="textbutton" id="leave">بازگشت به صفحهٔ میزها</button>'
   const stageTitles={clue:'قصه‌گویی',submit:'انتخاب کارت',vote:'رأی‌گیری',result:'نتیجهٔ دور'}
   if(stageTitles[s.phase]){
     const stages=Object.keys(stageTitles).filter(key=>!duo||key!=='submit')
@@ -97,6 +98,7 @@ function render(){
     room.querySelectorAll('.panel')[1].prepend(marker)
   }
   room.querySelector('[aria-pressed="true"]')?.classList.add('selected')
+  if($('#showQR'))$('#showQR').onclick=onlineInvitation
   $('#invite').onclick=async()=>{if(local){await hostPair();return}const u=new URL('game.html',location.href);u.searchParams.set('room',session.code);try{await navigator.clipboard.writeText(u.href);notify('لینک دعوت کپی شد.')}catch{openModal('<h2>لینک دعوت</h2><input readonly dir="ltr" value="'+esc(u.href)+'">');content.querySelector('input').select()}}
   $('#leave').onclick=()=>{openModal('<h2>بازگشت به میزها؟</h2><p>جای شما روی میز حفظ می‌شود. با گزینهٔ «ادامهٔ بازی» برمی‌گردید.</p><button class="primary" id="confirm">بازگشت</button>');$('#confirm').onclick=()=>{seq++;state=null;signature='';room.hidden=true;$('#home').hidden=false;modal.close();resumeButton()}}
 }
