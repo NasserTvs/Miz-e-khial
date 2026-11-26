@@ -1,0 +1,1 @@
+{"name":"miz-e-khial","private":true,"type":"module","scripts":{"dev":"wrangler d1 migrations apply DB --local && wrangler dev --local"},"devDependencies":{"wrangler":"4.92.0"}}
