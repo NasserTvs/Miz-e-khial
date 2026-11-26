@@ -1,7 +1,17 @@
 import {env} from 'cloudflare:workers'
 import {act,create,join,view,requireRule} from './game.mjs'
+function headers(req: Request){
+  const h=new Headers({'Cache-Control':'no-store','Vary':'Origin'})
+  if(req.headers.get('Origin')==='https://nassertvs.github.io'){
+    h.set('Access-Control-Allow-Origin','https://nassertvs.github.io')
+    h.set('Access-Control-Allow-Methods','POST, OPTIONS')
+    h.set('Access-Control-Allow-Headers','Content-Type')
+  }
+  return h
+}
+export function OPTIONS(req:Request){return new Response(null,{status:204,headers:headers(req)})}
 export async function POST(req:Request){
-  const json=(x:unknown,status=200)=>Response.json(x,{status,headers:{'Cache-Control':'no-store'}})
+  const json=(x:unknown,status=200)=>Response.json(x,{status,headers:headers(req)})
   try{
     const b=await req.json(),db=env.DB!
     const now=Date.now(),expires=now+86400000

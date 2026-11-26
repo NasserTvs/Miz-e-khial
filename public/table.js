@@ -10,7 +10,7 @@ modal.addEventListener('click',e=>{if(e.target===modal&&e.offsetX<0)modal.close(
 function classic(){return state && state.phase!=='lobby' && state.edition!==2}
 function title(id){return (classic()?oldLabels:labels)[id]||'کارت '+fa(id+1)}
 function asset(id,thumbnail=false){
-  const directory=classic()?'/cards/':thumbnail?'/paintings/thumb/':'/paintings/'
+  const directory=classic()?'./cards/':thumbnail?'./paintings/thumb/':'./paintings/'
   return directory+id+'.webp'
 }
 const lens='<svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6M7 10h6m-3-3v6"/></svg>'
@@ -34,19 +34,21 @@ $('#gallery').onclick=gallery
 content.addEventListener('click',e=>{const b=e.target.closest('[data-card]');if(b)showArt(+b.dataset.card)})
 $('#samples').onclick=e=>{const b=e.target.closest('[data-card]');if(b)showArt(+b.dataset.card)}
 function samples(){$('#samples').innerHTML=[16,22,72,76,79].map(id=>tile(id)).join('')}
-fetch('/cards/names.json').then(r=>r.json()).then(x=>{oldLabels=x}).catch(()=>{})
-samples();fetch('/paintings/names.json').then(r=>r.json()).then(x=>{labels=x;samples()}).catch(()=>{})
+fetch('./cards/names.json').then(r=>r.json()).then(x=>{oldLabels=x}).catch(()=>{})
+samples();fetch('./paintings/names.json').then(r=>r.json()).then(x=>{labels=x;samples()}).catch(()=>{})
 $('#rules').onclick=()=>openModal('<h2>راهنمای بازی</h2><p><b>آماده شدن</b> — میزبان میز می‌سازد و لینک دعوت را برای دوستانش می‌فرستد. هر نفر پنج کارت خصوصی دارد و دو بار قصه‌گو می‌شود.</p><p><b>سه تا هشت نفر</b> — قصه‌گو یک کارت و یک سرنخ انتخاب می‌کند. دیگران هر کدام یک کارت هم‌خوان می‌گذارند. کارت‌ها بُر می‌خورند و همه به‌جز قصه‌گو، کارت او را حدس می‌زنند. رأی به کارت خودت مجاز نیست.</p><p><b>امتیاز</b> — اگر بعضی درست حدس بزنند، قصه‌گو و هر حدس‌زنِ درست سه امتیاز می‌گیرند. اگر همه یا هیچ‌کس درست نگویند، هر حدس‌زن دو امتیاز می‌گیرد. هر رأی به کارت گمراه‌کننده هم یک امتیاز برای صاحب آن دارد.</p><p><b>بازی دونفره</b> — با هم یک تیم هستید. دو کارت تصادفی کنار کارت قصه‌گو می‌آید. هر حدس درست برای هر دو نفر دو امتیاز دارد. هدف چهار حدس درست از چهار دور است.</p>')
-async function api(body){const response=await fetch('/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});const d=await response.json().catch(()=>({error:'سرور پاسخ نداد. دوباره تلاش کنید.'}));if(!response.ok||d.error)throw Error(d.error||'ارتباط برقرار نشد.');return d}
+async function api(body){if(playMode==='local')return (await nearby()).action(body);const response=await fetch(onlineEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});const d=await response.json().catch(()=>({error:'سرور پاسخ نداد. دوباره تلاش کنید.'}));if(!response.ok||d.error)throw Error(d.error||'ارتباط برقرار نشد.');return d}
 const invited=new URL(location.href).searchParams.get('room')
 function entry(join=false){
+  playMode='online'
   openModal('<h2>'+(join?'ورود به میز':'ساخت میز جدید')+'</h2><form id="entry"><label>نام بازیکن<input name="name" maxlength="20" autocomplete="nickname" placeholder="نام شما" required></label>'+(join?'<label>کد شش‌رقمی میز<input name="code" inputmode="numeric" dir="ltr" maxlength="6" required value="'+esc(invited&&/^\d{6}$/.test(invited)?invited:'')+'"></label>':'')+'<p role="alert" class="error"></p><button class="primary">'+(join?'ورود به بازی':'ساخت میز')+'</button></form>')
   $('#entry').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button');b.disabled=true
     try{const d=await api({action:join?'join':'create',name:f.elements.name.value,code:join?digits(f.elements.code.value.trim()):undefined})
       session={code:d.code,token:d.token};localStorage.setItem('khial.session',JSON.stringify(session));modal.close();receive(d.state)
     }catch(err){f.querySelector('.error').textContent=err.message||'اتصال برقرار نشد.'}finally{b.disabled=false}}
 }
-$('#make').onclick=()=>entry(false);$('#enter').onclick=()=>entry(true)
+$('#make').onclick=()=>chooseLocal().catch(e=>notify(e.message));$('#enter').onclick=chooseOnline
+modal.addEventListener('close',endPair)
 function receive(s){const sig=JSON.stringify(s);if(signature===sig)return
   const fresh=!state||state.round!==s.round||state.phase!==s.phase
   if(fresh && state && !document.hidden)playCue(s.phase)
@@ -58,11 +60,12 @@ function receive(s){const sig=JSON.stringify(s);if(signature===sig)return
 }
 const actionButton=(a,t,disabled=false)=>'<button class="primary" data-action="'+a+'" '+(disabled?'disabled':'')+'>'+t+'</button>'
 function render(){
+  const local=playMode==='local'
   $('#home').hidden=true;const room=$('#room');room.hidden=false
   const s=state,host=s.me===0,story=s.me===s.narrator,n=s.players.length,duo=n===2
   const chips=s.players.map((p,i)=>'<span class="chip">'+esc(p.name)+(i===s.me?' · شما':'')+(s.phase==='lobby'?(i===0?' · میزبان':''):' · '+fa(p.score)+' امتیاز')+(['vote','submit'].includes(s.phase)&&p.ready?' ✓':'')+'</span>').join('')
   let inner='',cards=[],canPick=false,action=''
-  if(s.phase==='lobby')inner='<h2>انتظار برای بازیکنان</h2><p>لینک دعوت یا کد میز را برای دوستانت بفرست. هر نفر با دستگاه خودش وارد شود.</p>'+(host?actionButton('start','شروع بازی',n<2):'منتظر شروع بازی توسط میزبان باشید.')
+  if(s.phase==='lobby')inner='<h2>انتظار برای بازیکنان</h2><p>'+(local?'برای هر مهمان، دعوت تصویری جدا بساز. همه به یک وای‌فای وصل باشید.':'لینک دعوت یا کد میز را برای دوستانت بفرست.')+'</p>'+(host?actionButton('start','شروع بازی',n<2):'منتظر شروع بازی توسط میزبان باشید.')
   if(s.phase==='clue'){inner='<h2>'+(story?'نوبت قصه‌گویی توست':'قصه‌گو در حال انتخاب کارت است')+'</h2>'
     if(story){inner+='<p>از دست خودت یک تصویر انتخاب کن و سرنخی برای آن بنویس.</p><label>سرنخ شما<input id="clue" maxlength="100" placeholder="یک واژه یا یک جمله…"></label>';cards=s.hand;canPick=true;action='clue'}}
   if(s.phase==='submit'){inner='<h2>یک کارت برای این سرنخ</h2><p>«'+esc(s.clue)+'»</p>';if(!story&&s.own===undefined){cards=s.hand;canPick=true;action='submit'}else inner+='<p>منتظر انتخاب بقیهٔ بازیکنان هستیم.</p>'}
@@ -85,7 +88,7 @@ function render(){
   if(['submit','vote'].includes(s.phase)&&s.own!==undefined&&!cards.includes(s.own)){
     inner+='<details class="help"><summary>کارت انتخاب‌شدهٔ من</summary><div class="answer">'+tile(s.own,'disabled')+'</div></details>'
   }
-  room.innerHTML='<div class="panel"><div class="roomhead"><h2>میز <b class="code">'+fa(session.code)+'</b></h2><button class="secondary" id="invite">کپی لینک دعوت</button></div><p>'+(s.phase==='lobby'?fa(n)+' نفر از ۸ نفر حاضرند':'دور '+fa(s.round)+' از '+fa(n*2)+' · قصه‌گو '+esc(s.players[s.narrator].name))+'</p><div class="players">'+chips+'</div></div><div class="panel">'+inner+'</div><button class="textbutton" id="leave">بازگشت به صفحهٔ میزها</button>'
+  room.innerHTML='<div class="panel"><div class="roomhead"><h2>میز <b class="code">'+(local?'حضوری':fa(session.code))+'</b></h2><button class="secondary" id="invite" '+(local&&!host?'hidden':'')+'>'+(local?'دعوت با کد تصویری':'کپی لینک دعوت')+'</button></div><p>'+(s.phase==='lobby'?fa(n)+' نفر از ۸ نفر حاضرند':'دور '+fa(s.round)+' از '+fa(n*2)+' · قصه‌گو '+esc(s.players[s.narrator].name))+'</p><div class="players">'+chips+'</div></div><div class="panel">'+inner+'</div><button class="textbutton" id="leave">بازگشت به صفحهٔ میزها</button>'
   const stageTitles={clue:'قصه‌گویی',submit:'انتخاب کارت',vote:'رأی‌گیری',result:'نتیجهٔ دور'}
   if(stageTitles[s.phase]){
     const stages=Object.keys(stageTitles).filter(key=>!duo||key!=='submit')
@@ -94,7 +97,7 @@ function render(){
     room.querySelectorAll('.panel')[1].prepend(marker)
   }
   room.querySelector('[aria-pressed="true"]')?.classList.add('selected')
-  $('#invite').onclick=async()=>{const u=new URL('/game.html',location.origin);u.searchParams.set('room',session.code);try{await navigator.clipboard.writeText(u.href);notify('لینک دعوت کپی شد.')}catch{openModal('<h2>لینک دعوت</h2><input readonly dir="ltr" value="'+esc(u.href)+'">');content.querySelector('input').select()}}
+  $('#invite').onclick=async()=>{if(local){await hostPair();return}const u=new URL('game.html',location.href);u.searchParams.set('room',session.code);try{await navigator.clipboard.writeText(u.href);notify('لینک دعوت کپی شد.')}catch{openModal('<h2>لینک دعوت</h2><input readonly dir="ltr" value="'+esc(u.href)+'">');content.querySelector('input').select()}}
   $('#leave').onclick=()=>{openModal('<h2>بازگشت به میزها؟</h2><p>جای شما روی میز حفظ می‌شود. با گزینهٔ «ادامهٔ بازی» برمی‌گردید.</p><button class="primary" id="confirm">بازگشت</button>');$('#confirm').onclick=()=>{seq++;state=null;signature='';room.hidden=true;$('#home').hidden=false;modal.close();resumeButton()}}
 }
 $('#room').onclick=async e=>{const card=e.target.closest('[data-card]');if(card&&!card.disabled){chosen=+card.dataset.card;$('#room').querySelectorAll('[data-card]').forEach(x=>{x.classList.toggle('selected',x===card);x.setAttribute('aria-pressed',String(x===card))});const confirm=$('#room [data-action]');if(confirm)confirm.disabled=false;return}
@@ -102,10 +105,10 @@ $('#room').onclick=async e=>{const card=e.target.closest('[data-card]');if(card&
   try{const d=await api({...session,action:btn.dataset.action,round:state.round,card:chosen,clue:$('#clue')?.value});receive(d.state)}
   catch(err){notify(err.message);btn.disabled=false}finally{busy=false}}
 function resumeButton(){if(!session||$('#resume'))return;const b=document.createElement('button');b.id='resume';b.className='secondary';b.textContent='ادامهٔ بازی';$('#home .actions').append(b);b.onclick=restore}
-async function restore(){try{const d=await api({...session,action:'state'});receive(d.state)}catch(e){notify(e.message);resumeButton()}}
+async function restore(){playMode=session?.local?'local':'online';try{const d=await api({...session,action:'state'});receive(d.state)}catch(e){notify(e.message);resumeButton()}}
 try{session=JSON.parse(localStorage.getItem('khial.session'))}catch{}
-if(invited&&invited!==session?.code)entry(true);else if(session)restore()
-setInterval(async()=>{if(!state||!session||busy||polling||document.hidden)return;polling=true;const id=seq;try{const d=await api({...session,action:'state'});if(id===seq&&!busy)receive(d.state)}catch{if(state)notify('ارتباط با میز قطع است. در حال اتصال دوباره…')}finally{polling=false}},1850)
+if(location.hash.startsWith('#local='))chooseLocal(location.hash.slice(7)).catch(e=>notify(e.message));else if(invited){if(invited===session?.code){playMode='online';restore()}else entry(true)}else if(session)resumeButton()
+setInterval(async()=>{if(playMode==='local'||!state||!session||busy||polling||document.hidden)return;polling=true;const id=seq;try{const d=await api({...session,action:'state'});if(id===seq&&!busy)receive(d.state)}catch{if(state)notify('ارتباط با میز قطع است. در حال اتصال دوباره…')}finally{polling=false}},1850)
 
 // صداهای کوتاه با ساز مجازی روی دستگاه بازیکن پخش می‌شوند.
 const motifs={clue:[392,523.25,659.25],submit:[523.25,440],vote:[440,554.37,440],result:[392,493.88,587.33],end:[392,493.88,587.33,783.99]}
