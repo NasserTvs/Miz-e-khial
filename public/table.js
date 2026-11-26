@@ -38,7 +38,37 @@ fetch('./cards/names.json').then(r=>r.json()).then(x=>{oldLabels=x}).catch(()=>{
 samples();fetch('./paintings/names.json').then(r=>r.json()).then(x=>{labels=x;samples()}).catch(()=>{})
 $('#rules').onclick=()=>openModal('<h2>راهنمای بازی</h2><p><b>آماده شدن</b> — میزبان میز می‌سازد و لینک دعوت را برای دوستانش می‌فرستد. هر نفر پنج کارت خصوصی دارد و دو بار قصه‌گو می‌شود.</p><p><b>سه تا هشت نفر</b> — قصه‌گو یک کارت و یک سرنخ انتخاب می‌کند. دیگران هر کدام یک کارت هم‌خوان می‌گذارند. کارت‌ها بُر می‌خورند و همه به‌جز قصه‌گو، کارت او را حدس می‌زنند. رأی به کارت خودت مجاز نیست.</p><p><b>امتیاز</b> — اگر بعضی درست حدس بزنند، قصه‌گو و هر حدس‌زنِ درست سه امتیاز می‌گیرند. اگر همه یا هیچ‌کس درست نگویند، هر حدس‌زن دو امتیاز می‌گیرد. هر رأی به کارت گمراه‌کننده هم یک امتیاز برای صاحب آن دارد.</p><p><b>بازی دونفره</b> — با هم یک تیم هستید. دو کارت تصادفی کنار کارت قصه‌گو می‌آید. هر حدس درست برای هر دو نفر دو امتیاز دارد. هدف چهار حدس درست از چهار دور است.</p>')
 async function api(body){if(playMode==='local')return (await nearby()).action(body);return serverApi(body)}
-async function serverApi(body){const response=await fetch(onlineEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});const d=await response.json().catch(()=>({error:'سرور پاسخ نداد. دوباره تلاش کنید.'}));if(!response.ok||d.error)throw Error(d.error||'ارتباط برقرار نشد.');return d}
+class RoomConnectionError extends Error {}
+async function serverApi(body){
+  const controller=new AbortController()
+  const timer=setTimeout(()=>controller.abort(),15000)
+  try{
+    const response=await fetch(onlineEndpoint,{
+      method:'POST',credentials:'omit',headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body:JSON.stringify(body),signal:controller.signal
+    })
+    const data=await response.json()
+    if(data.error)throw new Error(data.error)
+    if(!response.ok||!data.state)throw new RoomConnectionError('سرور بازی پاسخ قابل استفاده نداد.')
+    return data
+  }catch(error){
+    if(error instanceof TypeError||error instanceof SyntaxError||controller.signal.aborted){
+      throw new RoomConnectionError('مرورگر نتوانست پاسخ سرور بازی را دریافت کند.')
+    }
+    throw error
+  }finally{clearTimeout(timer)}
+}
+function showEntryError(form,error,join){
+  const box=form.querySelector('.error')
+  box.textContent=error.message||'ارتباط برقرار نشد.'
+  if(!(error instanceof RoomConnectionError)||location.origin===new URL(onlineEndpoint,location.href).origin)return
+  const url=new URL('https://stozhit-mah-khial.leapingknack64.chatgpt.site/game')
+  url.searchParams.set('online',join?'join':'create')
+  if(join){const code=digits(form.elements.code.value.trim());if(/^\d{6}$/.test(code))url.searchParams.set('room',code)}
+  const link=document.createElement('a')
+  link.href=url.href;link.textContent=join?'ورود از مسیر مستقیم بازی':'ساخت میز از مسیر مستقیم بازی'
+  box.append(document.createElement('br'),link)
+}
 const invited=new URL(location.href).searchParams.get('room')
 function entry(join=false){
   playMode='online'
@@ -46,7 +76,7 @@ function entry(join=false){
   $('#entry').onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector('button');b.disabled=true
     try{const d=await api({action:join?'join':'create',name:f.elements.name.value,code:join?digits(f.elements.code.value.trim()):undefined})
       session={code:d.code,token:d.token};localStorage.setItem('khial.session',JSON.stringify(session));modal.close();receive(d.state)
-    }catch(err){f.querySelector('.error').textContent=err.message||'اتصال برقرار نشد.'}finally{b.disabled=false}}
+    }catch(err){showEntryError(f,err,join)}finally{b.disabled=false}}
 }
 $('#make').onclick=()=>chooseLocal().catch(e=>notify(e.message));$('#enter').onclick=chooseOnline
 modal.addEventListener('close',endPair)
@@ -109,7 +139,7 @@ $('#room').onclick=async e=>{const card=e.target.closest('[data-card]');if(card&
 function resumeButton(){if(!session||$('#resume'))return;const b=document.createElement('button');b.id='resume';b.className='secondary';b.textContent='ادامهٔ بازی';$('#home .actions').append(b);b.onclick=restore}
 async function restore(){playMode=session?.local?'local':'online';try{const d=await api({...session,action:'state'});receive(d.state)}catch(e){notify(e.message);resumeButton()}}
 try{session=JSON.parse(localStorage.getItem('khial.session'))}catch{}
-if(location.hash.startsWith('#local='))chooseLocal(location.hash.slice(7)).catch(e=>notify(e.message));else if(invited){if(invited===session?.code){playMode='online';restore()}else entry(true)}else if(session)resumeButton()
+if(location.hash.startsWith('#local='))chooseLocal(location.hash.slice(7)).catch(e=>notify(e.message));else if(invited){if(invited===session?.code){playMode='online';restore()}else entry(true)}else if(new URL(location.href).searchParams.get('online')==='create')entry(false);else if(new URL(location.href).searchParams.get('online')==='join')entry(true);else if(session)resumeButton()
 setInterval(async()=>{if(playMode==='local'||!state||!session||busy||polling||document.hidden)return;polling=true;const id=seq;try{const d=await api({...session,action:'state'});if(id===seq&&!busy)receive(d.state)}catch{if(state)notify('ارتباط با میز قطع است. در حال اتصال دوباره…')}finally{polling=false}},1850)
 
 // صداهای کوتاه با ساز مجازی روی دستگاه بازیکن پخش می‌شوند.
