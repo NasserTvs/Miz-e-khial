@@ -15,7 +15,7 @@ function chooseOnline(){
 async function chooseLocal(offer=''){
   playMode='local'
   const lan=await nearby()
-  openModal('<h2>بازی حضوری</h2><p>همه به یک وای‌فای وصل شوید. صفحهٔ میزبان باید در طول بازی باز بماند.</p><label>نام بازیکن<input id="nearName" maxlength="20" autocomplete="nickname"></label><div class="actions">'+(offer?'':'<button class="primary" id="nearCreate">ساخت میز حضوری</button>')+'<button class="secondary" id="nearJoin">'+(offer?'پاسخ به دعوت میزبان':'پیوستن به میز')+'</button></div>'+(lan.canResume()&&!offer?'<button class="textbutton" id="nearResume">ادامهٔ میز حضوری قبلی</button>':''))
+  openModal('<h2>بازی حضوری</h2><p>به یک وای‌فای یا هات‌اسپات میزبان وصل شوید. بعد از ذخیرهٔ بازی روی هر گوشی، اینترنت لازم نیست. میزبان صفحه را باز و گوشی را روشن نگه دارد؛ بازی کارت‌ها، نوبت‌ها و امتیازها را مدیریت می‌کند.</p><label>نام بازیکن<input id="nearName" maxlength="20" autocomplete="nickname"></label><div class="actions">'+(offer?'':'<button class="primary" id="nearCreate">ساخت میز حضوری</button>')+'<button class="secondary" id="nearJoin">'+(offer?'پاسخ به دعوت میزبان':'پیوستن به میز')+'</button></div>'+(lan.canResume()&&!offer?'<button class="textbutton" id="nearResume">ادامهٔ میز حضوری قبلی</button>':''))
   function name(){const el=$('#nearName');const v=el.value.trim();if(!v){el.focus();notify('نامت را وارد کن.')}return v}
   if($('#nearCreate'))$('#nearCreate').onclick=()=>{const v=name();if(v)enterLocal(lan.start(v))}
   if($('#nearResume'))$('#nearResume').onclick=()=>enterLocal(lan.resume())
@@ -81,7 +81,7 @@ async function hostPair(){
   try{
     const lan=await nearby(),link=await lan.invite()
     if(generation!==pairGeneration||!modal.open)return
-    openModal('<h2>دعوت یک بازیکن</h2><p>۱. مهمان این کد را با دوربین گوشی‌اش اسکن کند و نامش را وارد کند.</p>'+codePanel('کپی لینک دعوت')+'<p>۲. پاسخ روی گوشی مهمان را با دوربین میزبان اسکن کن.</p>'+readerPanel('ثبت پاسخ مهمان'))
+    openModal('<h2>دعوت یک بازیکن</h2><p>۱. مهمان در صفحهٔ بازی خودش، «بازی حضوری» و «پیوستن به میز» را بزند و کد را اسکن کند.</p>'+codePanel('کپی لینک دعوت')+'<p>۲. پاسخ روی گوشی مهمان را با دوربین میزبان اسکن کن.</p>'+readerPanel('ثبت پاسخ مهمان'))
     bindReader(async text=>{await lan.accept(text);openModal('<h2>اتصال مهمان</h2><p>پس از اتصال، نام مهمان در میز دیده می‌شود. برای نفر بعد دعوت تازه بساز.</p><button class="primary" id="returnTable">بازگشت به میز</button>');$('#returnTable').onclick=()=>modal.close()})
     await displayCode(link)
   }catch(e){
