@@ -29,13 +29,13 @@ document.addEventListener('click',e=>{
   const zoom=e.target.closest('[data-zoom]')
   if(zoom){e.stopPropagation();showArt(+zoom.dataset.zoom)}
 },true)
-function gallery(){openModal('<h2>نگارخانهٔ کارت‌ها</h2><div class="grid">'+Array.from({length:80},(_,i)=>tile(i)).join('')+'</div>',true)}
+function gallery(){openModal('<h2>نگارخانهٔ کارت‌ها</h2><div class="grid">'+Array.from({length:104},(_,i)=>tile(i)).join('')+'</div>',true)}
 $('#gallery').onclick=gallery
 content.addEventListener('click',e=>{const b=e.target.closest('[data-card]');if(b)showArt(+b.dataset.card)})
 $('#samples').onclick=e=>{const b=e.target.closest('[data-card]');if(b)showArt(+b.dataset.card)}
-function samples(){$('#samples').innerHTML=[16,22,72,76,79].map(id=>tile(id)).join('')}
+function samples(){$('#samples').innerHTML=[80,88,92,98,79].map(id=>tile(id)).join('')}
 fetch('./cards/names.json').then(r=>r.json()).then(x=>{oldLabels=x}).catch(()=>{})
-samples();fetch('./paintings/names.json').then(r=>r.json()).then(x=>{labels=x;samples()}).catch(()=>{})
+samples();fetch('./paintings/names.json?v=6').then(r=>r.json()).then(x=>{labels=x;samples()}).catch(()=>{})
 $('#rules').onclick=()=>openModal('<h2>راهنمای بازی</h2><p><b>آماده شدن</b> — میزبان میز می‌سازد و لینک دعوت را برای دوستانش می‌فرستد. هر نفر پنج کارت خصوصی دارد و دو بار قصه‌گو می‌شود.</p><p><b>سه تا هشت نفر</b> — قصه‌گو یک کارت و یک سرنخ انتخاب می‌کند. دیگران هر کدام یک کارت هم‌خوان می‌گذارند. کارت‌ها بُر می‌خورند و همه به‌جز قصه‌گو، کارت او را حدس می‌زنند. رأی به کارت خودت مجاز نیست.</p><p><b>امتیاز</b> — اگر بعضی درست حدس بزنند، قصه‌گو و هر حدس‌زنِ درست سه امتیاز می‌گیرند. اگر همه یا هیچ‌کس درست نگویند، هر حدس‌زن دو امتیاز می‌گیرد. هر رأی به کارت گمراه‌کننده هم یک امتیاز برای صاحب آن دارد.</p><p><b>بازی دونفره</b> — با هم یک تیم هستید. دو کارت تصادفی کنار کارت قصه‌گو می‌آید. هر حدس درست برای هر دو نفر دو امتیاز دارد. هدف چهار حدس درست از چهار دور است.</p>')
 async function api(body){if(playMode==='local')return (await nearby()).action(body);return serverApi(body)}
 class RoomConnectionError extends Error {}

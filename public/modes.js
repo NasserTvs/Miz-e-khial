@@ -2,7 +2,7 @@ let nearbyGame=null,playMode=null,scanStream=null,scanGeneration=0,pairGeneratio
 const onlineEndpoint=location.hostname==='nassertvs.github.io'?'https://stozhit-mah-khial.leapingknack64.chatgpt.site/api/game':'/api/game'
 async function nearby(){
   if(!nearbyGame){
-    nearbyGame=await import('./nearby.mjs')
+    nearbyGame=await import('./nearby.mjs?v=6')
     nearbyGame.configure(s=>{if(playMode==='local'&&state)receive(s)},notify)
   }
   return nearbyGame

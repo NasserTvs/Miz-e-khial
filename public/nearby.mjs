@@ -1,4 +1,4 @@
-import {create, join, act, view} from './local-rules.mjs'
+import {create, join, act, view} from './local-rules.mjs?v=6'
 
 const hostKey='khial.nearby.host.v1'
 const ticketPrefix='khial2.'

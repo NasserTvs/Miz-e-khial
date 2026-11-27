@@ -41,7 +41,7 @@ export function act(g,i,b){
   requireRule(i>=0,'ورود دوباره لازم است.')
   if(b.action==='start'||b.action==='replay'){
     requireRule(host&&g.players.length>=2&&g.phase===(b.action==='start'?'lobby':'end'),'اکنون امکان شروع بازی نیست.')
-    g.edition=2;g.deck=shuffle(Array.from({length:80},(_,i)=>i));g.discard=[];g.round=1;g.narrator=0
+    g.edition=2;g.deck=shuffle(Array.from({length:104},(_,i)=>i));g.discard=[];g.round=1;g.narrator=0
     for(const p of g.players){p.hand=[];p.score=0}begin(g);return
   }
   requireRule(b.round===g.round,'دور بازی تغییر کرده است.')
