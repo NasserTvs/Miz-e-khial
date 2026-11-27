@@ -2,7 +2,7 @@ let nearbyGame=null,playMode=null,scanStream=null,scanGeneration=0,pairGeneratio
 const onlineEndpoint=location.hostname==='nassertvs.github.io'?'https://stozhit-mah-khial.leapingknack64.chatgpt.site/api/game':'/api/game'
 async function nearby(){
   if(!nearbyGame){
-    nearbyGame=await import('./nearby.mjs?v=6')
+    nearbyGame=await import('./nearby.mjs?v=9')
     nearbyGame.configure(s=>{if(playMode==='local'&&state)receive(s)},notify)
   }
   return nearbyGame
@@ -77,7 +77,7 @@ function bindReader(handle){
 }
 async function hostPair(){
   endPair();const generation=pairGeneration
-  openModal('<h2>دعوت حضوری</h2><p>در حال آماده کردن کد اتصال…</p>')
+  openModal('<h2>دعوت حضوری</h2><p>در حال آماده کردن کد اتصال… این کار ممکن است چند ثانیه طول بکشد.</p>')
   try{
     const lan=await nearby(),link=await lan.invite()
     if(generation!==pairGeneration||!modal.open)return
@@ -108,7 +108,7 @@ function guestPair(name,offer){
     if(gen!==pairGeneration||!modal.open)return
     openModal('<h2>پاسخ اتصال شما</h2><p>میزبان این کد را اسکن کند. این صفحه تا ورود به میز باز بماند.</p>'+codePanel('کپی پاسخ اتصال'))
     await displayCode(answer)
-    setTimeout(()=>{if(gen===pairGeneration&&modal.open&&$('#copyPair'))notify('اگر هنوز وصل نشده‌ای، وای‌فای مشترک را بررسی کن و از میزبان دعوت تازه بگیر.')},45000)
+    setTimeout(()=>{if(gen===pairGeneration&&modal.open&&$('#copyPair'))notify('اتصال هنوز تأیید نشده است. هر دو گوشی باید در یک شبکه باشند. اگر میزبان هات‌اسپات است، یک‌بار با وای‌فای مشترک یا هات‌اسپات گوشی دیگری امتحان کنید.')},45000)
   }
   bindReader(read);if(offer)read(offer).catch(e=>{if($('#pairError'))$('#pairError').textContent=e.message})
 }

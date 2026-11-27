@@ -1,9 +1,9 @@
 const base = new URL('./', self.location.href)
-const cacheName = 'khial-local-v2:' + base.pathname
-const gameURL = new URL('game.html', base).href
+const cacheName = 'khial-local-v3:' + base.pathname
+const gameURL = new URL('game.html?v=9', base).href
 const files = [
-  'game.html', 'offline.js?v=2', 'modes.js?v=7', 'table.js?v=6', 'table.css?v=5',
-  'nearby.mjs?v=6', 'local-rules.mjs?v=6', 'qr-reader.js', 'qr-writer.js',
+  'game.html?v=9', 'offline.js?v=3', 'modes.js?v=9', 'table.js?v=6', 'table.css?v=5',
+  'nearby.mjs?v=9', 'local-rules.mjs?v=6', 'qr-reader.js', 'qr-writer.js',
   'fonts/Regular.ttf', 'fonts/Bold.ttf', 'cards/names.json', 'paintings/names.json?v=6'
 ]
 for (let id = 0; id < 104; id++) {
@@ -21,7 +21,7 @@ self.addEventListener('install', event => event.waitUntil((async () => {
       for (let attempt = 0; ; attempt++) {
         try {
           const response = await fetch(url, {cache: attempt ? 'reload' : 'default'})
-          if (!response.ok || (file !== 'game.html' && response.headers.get('content-type')?.includes('text/html'))) {
+          if (!response.ok || (!file.startsWith('game.html') && response.headers.get('content-type')?.includes('text/html'))) {
             throw new Error(String(response.status))
           }
           // Store redirected HTML as a normal navigation response as well.

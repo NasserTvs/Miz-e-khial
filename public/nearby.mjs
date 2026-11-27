@@ -29,15 +29,26 @@ function newPC(){
   return new RTCPeerConnection({iceServers:[]})
 }
 async function gather(pc,description){
-  await pc.setLocalDescription(description)
-  if(pc.iceGatheringState!=='complete')await new Promise(resolve=>{
-    const finish=()=>{clearTimeout(timer);pc.removeEventListener('icegatheringstatechange',change);resolve()}
-    const change=()=>{if(pc.iceGatheringState==='complete')finish()}
-    const timer=setTimeout(finish,6500);pc.addEventListener('icegatheringstatechange',change);change()
-  })
-  const sdp=pc.localDescription?.sdp
-  if(!sdp?.includes('a=candidate:'))throw Error('نشانی شبکه پیدا نشد. اتصال وای‌فای و مجوز شبکهٔ محلی مرورگر را بررسی کن.')
-  return sdp
+  const candidates=new Set()
+  const record=event=>{
+    if(event.candidate?.candidate)candidates.add('a='+event.candidate.candidate)
+  }
+  pc.addEventListener('icecandidate',record)
+  try{
+    await pc.setLocalDescription(description)
+    if(pc.iceGatheringState!=='complete')await new Promise(resolve=>{
+      const finish=()=>{clearTimeout(timer);pc.removeEventListener('icegatheringstatechange',change);resolve()}
+      const change=()=>{if(pc.iceGatheringState==='complete')finish()}
+      const timer=setTimeout(finish,12000)
+      pc.addEventListener('icegatheringstatechange',change);change()
+    })
+    // The game negotiates a single data channel (one media section).
+    const sdp=pc.localDescription.sdp
+    const lines=sdp.trimEnd().split(/\r?\n/)
+    const end=lines.indexOf('a=end-of-candidates')
+    lines.splice(end<0?lines.length:end,0,...[...candidates].filter(c=>!lines.includes(c)))
+    return lines.join('\r\n')+'\r\n'
+  }finally{pc.removeEventListener('icecandidate',record)}
 }
 async function ticket(data){
   const bytes=new TextEncoder().encode(JSON.stringify(data))
@@ -115,7 +126,12 @@ export async function connect(text,name,onWelcome){
     if(ch.readyState==='open')hello()
   }
   await pc.setRemoteDescription({type:'offer',sdp:d.sdp})
-  return ticket({kind:'answer',id:d.id,table,sdp:await gather(pc,await pc.createAnswer())})
+  const sdp=await gather(pc,await pc.createAnswer())
+  if(!sdp.includes('a=candidate:')&&!d.sdp.includes('a=candidate:')){
+    pc.close()
+    throw Error('هیچ‌کدام از دو مرورگر نشانی محلی اعلام نکرد. هر دو گوشی را به یک وای‌فای وصل کن، یا هات‌اسپات را روی گوشی دیگری روشن کن و پس از اتصال دستگاه‌ها دعوت تازه بساز.')
+  }
+  return ticket({kind:'answer',id:d.id,table,sdp})
 }
 export async function action(body){
   if(game){if(body.action!=='state'){act(game,0,body);refresh()}return hostView()}

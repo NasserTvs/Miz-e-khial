@@ -1,7 +1,7 @@
 (() => {
   const button = document.getElementById('prepareOffline')
   const status = document.getElementById('offlineStatus')
-  const workerURL = new URL('./offline-sw.js', location.href).href
+  const workerURL = new URL('./offline-sw.js?v=3', location.href).href
   const supported = 'serviceWorker' in navigator && 'caches' in window
   function ready() {
     button.disabled = true
@@ -10,14 +10,13 @@
   }
   if (!supported) {
     button.disabled = true
-    failedFile = ''
     status.textContent = 'برای ذخیرهٔ بازی، لینک را در مرورگری با پشتیبانی از بازی آفلاین باز کن.'
     return
   }
   async function check() {
     const reg = await navigator.serviceWorker.getRegistration(location.href)
     if (reg?.active?.scriptURL === workerURL && reg.active.state === 'activated' &&
-        await caches.has('khial-local-v2:' + new URL('./', location.href).pathname)) ready()
+        await caches.has('khial-local-v3:' + new URL('./', location.href).pathname)) ready()
   }
   let failedFile = ''
   navigator.serviceWorker.addEventListener('message', event => {
